@@ -1,3 +1,32 @@
+"""
+PATRÓN FACTORY METHOD
+
+Justificación en el contexto del proyecto HVAC:
+-----------------------------------------------
+El patrón Factory Method es esencial en este sistema HVAC porque resuelve el problema
+de crear diferentes tipos de equipos (aire acondicionado, calefactor, ventilador) sin
+que el código cliente dependa de clases concretas.
+
+Problema que resuelve:
+----------------------
+Sin este patrón, el código tendría que usar condicionales (if/elif) para decidir qué
+clase instanciar, lo que viola el principio Open/Closed y hace difícil agregar nuevos
+tipos de equipos en el futuro.
+
+Alternativas consideradas:
+---------------------------
+1. Constructor directo: Mala práctica porque acopla el código a clases concretas
+2. Simple Factory (sin herencia): Mejor que constructor directo pero menos extensible
+3. Factory Method: Elegido porque permite extender fácilmente agregando nuevas fábricas
+   sin modificar el código existente
+
+Integración con el sistema:
+---------------------------
+Este patrón se integra con la API a través del endpoint PUT /habitaciones/{nombre}/equipo,
+permitiendo cambiar dinámicamente el tipo de equipo HVAC de una habitación.
+
+"""
+
 from abc import ABC, abstractmethod
 
 class HVACDevice(ABC):
