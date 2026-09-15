@@ -134,6 +134,12 @@ cd PROYECTO_HVAC
 Instalar las dependencias:
 
 ```bash
+pip install -r requirements.txt
+```
+
+O instalar manualmente:
+
+```bash
 pip install fastapi uvicorn
 ```
 
@@ -195,13 +201,14 @@ GET /habitaciones
 
 Devuelve todas las habitaciones o zonas registradas.
 
-### Cambiar equipo
+### Cambiar equipo (Factory Method)
 
 ```http
 PUT /habitaciones/{nombre}/equipo
 ```
 
 Permite cambiar el tipo de equipo HVAC asociado a una habitación.
+**Opciones**: aire, calefactor, ventilador
 
 ### Encender o apagar equipo
 
@@ -210,8 +217,45 @@ PUT /habitaciones/{nombre}/equipo/estado
 ```
 
 Permite modificar el estado del equipo HVAC.
+**Parámetro**: encendido (boolean)
 
-### Control central
+### Cambiar estrategia de climatización (Strategy)
+
+```http
+PUT /habitaciones/{nombre}/estrategia
+```
+
+Permite cambiar el algoritmo de control de temperatura.
+**Opciones**: eco, confort, turbo
+
+### Cambiar estado del sistema (State)
+
+```http
+PUT /habitaciones/{nombre}/estado
+```
+
+Permite cambiar el estado operacional del sistema.
+**Opciones**: apagado, operando, mantenimiento
+
+### Configurar observadores (Observer)
+
+```http
+PUT /habitaciones/{nombre}/observadores
+```
+
+Configura qué componentes recibirán notificaciones de eventos.
+**Opciones**: ["1"] (Pantalla), ["2"] (App móvil), ["3"] (Registro), o combinaciones
+
+### Enviar evento (Observer)
+
+```http
+POST /habitaciones/{nombre}/evento
+```
+
+Envía un evento a todos los observadores configurados.
+**Parámetro**: mensaje (texto)
+
+### Control central (Singleton)
 
 ```http
 GET /control-central
@@ -224,4 +268,26 @@ Permite consultar la información almacenada por el control central implementado
 El objetivo es demostrar la aplicación práctica de patrones de diseño dentro de un sistema HVAC, manteniendo una arquitectura modular, organizada y extensible.
 
 La implementación de **Factory Method, Observer, Singleton, State y Strategy** permite separar responsabilidades y facilitar la incorporación de nuevos equipos, estados, estrategias y funcionalidades sin modificar innecesariamente los componentes existentes.
+
+## Documentación adicional
+
+- **DIAGRAMAS_UML.md**: Documentación detallada de los diagramas UML para cada patrón
+- **tests_patrones.py**: Pruebas aisladas para verificar el funcionamiento de cada patrón
+- **patrones/*.py**: Cada archivo de patrones incluye documentación inline con justificaciones
+
+## Ejecutar pruebas de patrones
+
+Para verificar el funcionamiento aislado de cada patrón:
+
+```bash
+python tests_patrones.py
+```
+
+Esta ejecución probará:
+- Factory Method: Creación de diferentes equipos HVAC
+- Singleton: Unicidad del control central
+- Strategy: Cambio dinámico de estrategias de climatización
+- State: Transiciones entre estados operacionales
+- Observer: Notificación de eventos a múltiples componentes
+- Integración completa: Todos los patrones trabajando juntos
 
