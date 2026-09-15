@@ -111,6 +111,7 @@
     label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 11px; font-weight: 800; }
     input, select { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid #31546b; border-radius: 7px; color: #edf6fb; background: #0b2031; outline: none; }
     input:focus, select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(8, 127, 123, .11); }
+    select:disabled { opacity: 0.5; cursor: not-allowed; background: #061521; }
     .primary { min-height: 42px; padding: 0 16px; border: 2px solid #35e5ff; border-radius: 7px; color: white; background: var(--teal); box-shadow: 0 0 12px rgba(53, 229, 255, .35); font-size: 12px; font-weight: 900; }
     .primary:hover { background: #0f4f86; }
 
@@ -277,9 +278,10 @@
     function render() {
       const zones = state.zones;
       const active = zones.filter((zone) => zone.equipo_encendido).length;
-      const modes = zones.reduce((counts, zone) => { counts[zone.modo] = (counts[zone.modo] || 0) + 1; return counts; }, {});
+      const activeZones = zones.filter((zone) => zone.equipo_encendido);
+      const modes = activeZones.reduce((counts, zone) => { counts[zone.modo] = (counts[zone.modo] || 0) + 1; return counts; }, {});
       const dominant = Object.entries(modes).sort((a, b) => b[1] - a[1])[0];
-      const average = zones.length ? Math.round(zones.reduce((sum, zone) => sum + Number(zone.temperatura_objetivo || 0), 0) / zones.length) : "--";
+      const average = activeZones.length ? Math.round(activeZones.reduce((sum, zone) => sum + Number(zone.temperatura_objetivo || 0), 0) / activeZones.length) : "--";
       document.getElementById("total-zonas").textContent = zones.length;
       document.getElementById("zonas-activas").textContent = active;
       document.getElementById("modo-dominante").textContent = dominant ? dominant[0] : "--";
@@ -292,7 +294,14 @@
         <td><span class="zone-name">${safe(zone.habitacion)}</span><span class="zone-id">HVAC-${safe(String(zone.habitacion).slice(0, 3).toUpperCase())}</span></td>
         <td>${safe(zone.piso)}</td><td>${safe(prettyEquipment(zone.equipo))}</td>
         <td><span class="state ${zone.equipo_encendido ? "" : "off"}">${zone.equipo_encendido ? "● Encendido" : "○ Apagado"}</span><span class="zone-id">${safe(prettyEquipment(zone.equipo))}</span></td>
-        <td>${safe(zone.modo)}</td><td><button class="row-action" onclick="toggleEquipment('${encodeURIComponent(zone.habitacion)}', ${!zone.equipo_encendido})">${zone.equipo_encendido ? "Apagar" : "Encender"}</button> <button class="row-action" onclick="changeEquipment('${encodeURIComponent(zone.habitacion)}')">Cambiar</button></td>
+        <td>
+          <select onchange="changeStrategy('${encodeURIComponent(zone.habitacion)}', this.value)" style="min-height: 32px; padding: 4px 8px; font-size: 11px;" ${zone.equipo_encendido ? "" : "disabled"}>
+            <option value="eco" ${zone.modo === 'ECO' ? 'selected' : ''}>ECO</option>
+            <option value="confort" ${zone.modo === 'CONFORT' ? 'selected' : ''}>CONFORT</option>
+            <option value="turbo" ${zone.modo === 'TURBO' ? 'selected' : ''}>TURBO</option>
+          </select>
+        </td>
+        <td><button class="row-action" onclick="toggleEquipment('${encodeURIComponent(zone.habitacion)}', ${!zone.equipo_encendido})">${zone.equipo_encendido ? "Apagar" : "Encender"}</button> <button class="row-action" onclick="changeEquipment('${encodeURIComponent(zone.habitacion)}')">Cambiar</button></td>
       </tr>`).join("") : '<tr><td class="empty" colspan="6">Todavia no hay zonas registradas.</td></tr>';
     }
 
@@ -343,6 +352,16 @@
         await api(`/habitaciones/${encodeURIComponent(name)}/equipo/estado?encendido=${encendido}`, { method: "PUT" });
         logActivity(`${name}: equipo ${encendido ? "encendido" : "apagado"}`);
         notify(`Equipo ${encendido ? "encendido" : "apagado"}`);
+        await cargarDatos();
+      } catch (error) { notify(error.message, true); }
+    }
+
+    async function changeStrategy(encodedName, estrategia) {
+      const name = decodeURIComponent(encodedName);
+      try {
+        await api(`/habitaciones/${encodeURIComponent(name)}/estrategia?estrategia=${encodeURIComponent(estrategia)}`, { method: "PUT" });
+        logActivity(`${name}: estrategia cambiada a ${estrategia.toUpperCase()}`);
+        notify(`Estrategia cambiada a ${estrategia.toUpperCase()}`);
         await cargarDatos();
       } catch (error) { notify(error.message, true); }
     }
