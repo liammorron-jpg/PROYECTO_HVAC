@@ -1,19 +1,27 @@
 import sys
 from pathlib import Path
+from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+class ObservadoresRequest(BaseModel):
+    opciones: list
+
+class EventoRequest(BaseModel):
+    mensaje: str
 
 from modelos.habitacion import Habitacion
 from modelos.sistema_hvac import SistemaHVAC
 from patrones.factory_method import FabricaAire, FabricaCalefactor, FabricaVentilador
 from patrones.singleton import ControlCentralHVAC
-from patrones.strategy import SistemaClimatizacion, EstrategiaEco
+from patrones.strategy import SistemaClimatizacion, EstrategiaEco, EstrategiaConfort, EstrategiaTurbo
 from patrones.observer import GestorEventos
-from patrones.state import Apagado
+from patrones.state import Apagado, Operando, Mantenimiento
 
 
 app = FastAPI(
@@ -61,8 +69,8 @@ def obtener_sistema(nombre: str):
 
 def obtener_o_crear_sistema(
     nombre: str,
-    piso: str | None = None,
-    equipo: str | None = None
+    piso: Optional[str] = None,
+    equipo: Optional[str] = None
 ):
     nombre = nombre.strip()
 
@@ -75,10 +83,14 @@ def obtener_o_crear_sistema(
     clave = nombre.casefold()
 
     if clave not in sistemas:
+        equipo_creado = crear_equipo(equipo or "aire")
+        # El estado inicial depende de si el equipo está encendido
+        estado_inicial = Operando() if equipo_creado.encendido else Apagado()
+
         sistema = SistemaHVAC(
             Habitacion(nombre, piso),
-            crear_equipo(equipo or "aire"),
-            Apagado(),
+            equipo_creado,
+            estado_inicial,
             SistemaClimatizacion(EstrategiaEco()),
             GestorEventos()
         )
@@ -94,6 +106,8 @@ def obtener_o_crear_sistema(
 
         if equipo is not None:
             sistema.equipo = crear_equipo(equipo)
+            # Actualizar el estado según el nuevo equipo
+            sistema.estado = Operando() if sistema.equipo.encendido else Apagado()
 
     return sistema
 
@@ -127,8 +141,8 @@ def inicio():
 @app.get("/habitaciones/{nombre}")
 def consultar_habitacion(
     nombre: str,
-    piso: str | None = None,
-    equipo: str | None = None
+    piso: Optional[str] = None,
+    equipo: Optional[str] = None
 ):
     return resumir_sistema(
         obtener_o_crear_sistema(nombre, piso, equipo)
@@ -164,6 +178,80 @@ def cambiar_estado_equipo(nombre: str, encendido: bool):
 
     return {
         "mensaje": sistema.cambiar_estado_equipo(encendido),
+        "sistema": resumir_sistema(sistema)
+    }
+
+@app.put("/habitaciones/{nombre}/estrategia")
+def cambiar_estrategia(nombre: str, estrategia: str):
+    sistema = obtener_sistema(nombre)
+
+    estrategias = {
+        "eco": EstrategiaEco(),
+        "confort": EstrategiaConfort(),
+        "turbo": EstrategiaTurbo()
+    }
+
+    estrategia_obj = estrategias.get(estrategia.lower())
+
+    if not estrategia_obj:
+        raise HTTPException(
+            status_code=400,
+            detail="Estrategia válida: eco, confort o turbo"
+        )
+
+    sistema.cambiar_estrategia(estrategia_obj)
+
+    return {
+        "mensaje": f"Estrategia cambiada a {estrategia.upper()}",
+        "sistema": resumir_sistema(sistema)
+    }
+
+@app.put("/habitaciones/{nombre}/estado")
+def cambiar_estado_sistema(nombre: str, estado: str):
+    sistema = obtener_sistema(nombre)
+
+    estados = {
+        "apagado": Apagado(),
+        "operando": Operando(),
+        "mantenimiento": Mantenimiento()
+    }
+
+    estado_obj = estados.get(estado.lower())
+
+    if not estado_obj:
+        raise HTTPException(
+            status_code=400,
+            detail="Estado válido: apagado, operando o mantenimiento"
+        )
+
+    mensaje = sistema.cambiar_estado(estado_obj)
+
+    return {
+        "mensaje": mensaje,
+        "sistema": resumir_sistema(sistema)
+    }
+
+@app.put("/habitaciones/{nombre}/observadores")
+def configurar_observadores(nombre: str, request: ObservadoresRequest):
+    sistema = obtener_sistema(nombre)
+
+    resultado = sistema.seleccionar_observadores(request.opciones)
+
+    return {
+        "mensaje": "Observadores configurados",
+        "observadores": resultado,
+        "sistema": resumir_sistema(sistema)
+    }
+
+@app.post("/habitaciones/{nombre}/evento")
+def enviar_evento(nombre: str, request: EventoRequest):
+    sistema = obtener_sistema(nombre)
+
+    resultado = sistema.enviar_evento(request.mensaje)
+
+    return {
+        "mensaje": "Evento enviado",
+        "resultado": resultado,
         "sistema": resumir_sistema(sistema)
     }
 
