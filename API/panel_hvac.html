@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sistema de Monitoreo HVAC</title>
+  <style>
+    :root {
+      --ink: #0D2B45;
+      --muted: #9bb1c1;
+      --paper: #071725;
+      --surface: #102b40;
+      --line: #24465d;
+      --teal: #1565A9;
+      --teal-soft: #e2effa;
+      --orange: #FF5A0A;
+      --orange-soft: #4a271d;
+      --green: #249447;
+      --shadow: 0 18px 45px rgba(13, 43, 69, .11);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: #edf6fb;
+      background: var(--paper);
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      padding: 28px 18px;
+      color: #edf5fa;
+      background: #0D2B45;
+    }
+
+    .brand { display: flex; flex-direction: column; align-items: center; gap: 13px; margin: 0 10px 58px; text-align: center; }
+    .brand-logo { width: 110px; height: 110px; border-radius: 20px; background: white; object-fit: cover; box-shadow: 0 8px 20px rgba(0, 0, 0, .2); }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      color: var(--ink);
+      background: #d9ecfa;
+      font-size: 21px;
+      font-weight: 900;
+    }
+    .brand strong { display: block; letter-spacing: .04em; font-size: 15px; }
+    .brand small { display: block; margin-top: 3px; color: #9bb1c1; font-size: 10px; letter-spacing: .13em; text-transform: uppercase; }
+
+    .nav-label { margin: 0 12px 10px; color: #86a7ba; font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .nav-button { 
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      margin: 4px 0;
+      padding: 12px;
+      border: 0;
+      border-radius: 9px;
+      color: #a8c0ce;
+      background: transparent;
+      text-align: left;
+      font-size: 13px;
+    }
+    .nav-button.active, .nav-button:hover { color: #fff; background: rgba(21, 101, 169, .42); box-shadow: inset 0 0 0 1px #35e5ff, 0 0 12px rgba(53, 229, 255, .24); }
+    .nav-icon { width: 22px; color: #8fc8f0; text-align: center; font-size: 17px; }
+    .side-status { margin-top: auto; padding: 14px; border: 1px solid #2f6b7c; border-radius: 10px; background: rgba(4, 28, 51, .42); }
+    .side-status span { display: flex; align-items: center; gap: 8px; color: #c1d4df; font-size: 12px; }
+    .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #5dd49b; box-shadow: 0 0 0 4px rgba(93, 212, 155, .12); }
+    .side-status small { display: block; margin-top: 8px; color: #759094; font-size: 11px; }
+
+    main { max-width: 1500px; width: 100%; margin: 0 auto; padding: 31px clamp(22px, 4vw, 56px) 50px; }
+    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 30px; }
+    .eyebrow { margin: 0 0 8px; color: var(--teal); font-size: 11px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+    h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(29px, 4vw, 45px); font-weight: 500; letter-spacing: -.04em; }
+    .subtitle { margin: 9px 0 0; color: var(--muted); font-size: 14px; }
+    .refresh { display: inline-flex; align-items: center; gap: 9px; padding: 11px 15px; border: 2px solid #35e5ff; border-radius: 8px; color: #dff9ff; background: var(--surface); box-shadow: 0 0 10px rgba(53, 229, 255, .24); font-size: 12px; font-weight: 800; }
+    .refresh:hover { border-color: #7dff7a; color: #7dff7a; box-shadow: 0 0 16px rgba(125, 255, 122, .4); }
+
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .stat { position: relative; overflow: hidden; padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 4px 14px rgba(0, 0, 0, .16); }
+    .stat::after { position: absolute; right: -19px; bottom: -28px; width: 90px; height: 90px; border-radius: 50%; background: var(--teal-soft); content: ""; }
+    .stat.orange::after { background: var(--orange-soft); }
+    .stat-label { position: relative; z-index: 1; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .stat-value { position: relative; z-index: 1; display: block; margin-top: 12px; font-size: 28px; font-weight: 900; }
+
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; }
+    .panel { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
+    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; padding: 21px 22px 17px; border-bottom: 1px solid var(--line); }
+    .panel-title { margin: 0; font-size: 16px; }
+    .panel-note { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .pill { padding: 6px 9px; border-radius: 30px; color: var(--teal); background: var(--teal-soft); font-size: 10px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+
+    .form-wrap { padding: 19px 22px; background: #0c2335; }
+    .form-grid { display: grid; grid-template-columns: 1.3fr .7fr 1fr auto; align-items: end; gap: 10px; }
+    label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 11px; font-weight: 800; }
+    input, select { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid #31546b; border-radius: 7px; color: #edf6fb; background: #0b2031; outline: none; }
+    input:focus, select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(8, 127, 123, .11); }
+    select:disabled { opacity: 0.5; cursor: not-allowed; background: #061521; }
+    .primary { min-height: 42px; padding: 0 16px; border: 2px solid #35e5ff; border-radius: 7px; color: white; background: var(--teal); box-shadow: 0 0 12px rgba(53, 229, 255, .35); font-size: 12px; font-weight: 900; }
+    .primary:hover { background: #0f4f86; }
+
+    .table-wrap { overflow-x: auto; padding: 5px 22px 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { padding: 13px 9px; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 10px; letter-spacing: .1em; text-align: left; text-transform: uppercase; }
+    td { padding: 15px 9px; border-bottom: 1px solid #1e3b50; white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    .zone-name { font-weight: 900; }
+    .zone-id { display: block; margin-top: 4px; color: #899798; font-size: 10px; }
+    .state { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 20px; color: var(--green); background: #e8f6ee; font-size: 11px; font-weight: 800; }
+    .state.off { color: #9a6b36; background: #fff3df; }
+    .row-action { padding: 7px 9px; border: 2px solid #7dff7a; border-radius: 6px; color: #b8ffb5; background: #0b2031; box-shadow: 0 0 8px rgba(125, 255, 122, .24); font-size: 11px; font-weight: 800; }
+    .row-action:hover { border-color: #35e5ff; color: #dff9ff; background: var(--teal-soft); box-shadow: 0 0 14px rgba(53, 229, 255, .38); }
+    .empty { padding: 38px 15px; color: var(--muted); text-align: center; }
+
+    .right-column { display: flex; flex-direction: column; gap: 22px; }
+    .central { padding: 20px; }
+    .central-number { margin: 5px 0 20px; font-family: Georgia, serif; font-size: 48px; line-height: 1; }
+    .central-number small { color: var(--muted); font-family: "Trebuchet MS", sans-serif; font-size: 12px; }
+    .meter { overflow: hidden; height: 7px; border-radius: 10px; background: #e5ece9; }
+    .meter i { display: block; width: 74%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), #ffad32); }
+    .central-meta { display: flex; justify-content: space-between; margin-top: 9px; color: var(--muted); font-size: 11px; }
+    .activity { padding-bottom: 8px; }
+    .activity-list { margin: 0; padding: 9px 22px 6px; list-style: none; }
+    .activity-item { position: relative; padding: 12px 0 12px 20px; border-bottom: 1px solid #1e3b50; font-size: 12px; line-height: 1.45; }
+    .activity-item::before { position: absolute; top: 17px; left: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--teal); content: ""; }
+    .activity-item time { display: block; margin-top: 4px; color: #8a9797; font-size: 10px; }
+    .toast { position: fixed; right: 24px; bottom: 24px; z-index: 5; max-width: 320px; padding: 13px 16px; border-left: 4px solid var(--teal); border-radius: 7px; color: #edf6fb; background: #16384f; box-shadow: var(--shadow); font-size: 12px; transform: translateY(140%); transition: transform .25s ease; }
+    .toast.show { transform: translateY(0); }
+    .toast.error { border-color: var(--orange); }
+
+    @media (max-width: 1050px) {
+      .shell { grid-template-columns: 78px minmax(0, 1fr); }
+      .sidebar { padding: 22px 12px; }
+      .brand { justify-content: center; margin: 0 0 48px; }
+      .brand-logo { width: 54px; height: 54px; border-radius: 13px; }
+      .brand > div, .nav-label, .nav-button span:not(.nav-icon), .side-status { display: none; }
+      .nav-button { justify-content: center; padding: 13px 0; }
+      .workspace { grid-template-columns: 1fr; }
+      .right-column { display: grid; grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 700px) {
+      .shell { display: block; }
+      .sidebar { flex-direction: row; align-items: center; justify-content: space-between; padding: 12px 16px; }
+      .brand { flex-direction: row; margin: 0; text-align: left; }
+      .brand-logo { width: 64px; height: 64px; border-radius: 14px; }
+      .sidebar nav { display: flex; }
+      .sidebar .nav-button { display: none; }
+      .sidebar .nav-button.active { display: flex; padding: 9px 12px; }
+      main { padding: 25px 16px 35px; }
+      .topbar { align-items: flex-end; }
+      .refresh { width: 42px; height: 42px; justify-content: center; padding: 0; overflow: hidden; font-size: 0; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .form-grid { grid-template-columns: 1fr 1fr; }
+      .form-grid .field:first-child { grid-column: span 2; }
+      .form-grid .primary { width: 100%; }
+      .right-column { display: flex; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div>
+        <div class="brand">
+          <img class="brand-logo" src="/logo_hvac.svg" alt="Logo Sistema de Monitoreo HVAC">
+          <div><strong>Sistema de Monitoreo HVAC</strong><small>Hotel operations</small></div>
+        </div>
+        <div class="nav-label">Workspace</div>
+        <nav>
+          <button class="nav-button active" type="button"><span class="nav-icon">▦</span><span>Resumen</span></button>
+        </nav>
+      </div>
+      <div class="side-status"><span><i class="online-dot"></i> API conectada</span><small>Sincronizacion activa</small></div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Centro de control / 01</p>
+          <h1>Sistema de Monitoreo HVAC</h1>
+          <p class="subtitle">Supervisa las zonas HVAC del hotel desde un solo lugar.</p>
+        </div>
+        <button class="refresh" type="button" onclick="cargarDatos()"><span>↻</span><span>Actualizar</span></button>
+      </header>
+
+      <section class="stats" aria-label="Resumen del sistema">
+        <article class="stat"><span class="stat-label">Zonas registradas</span><strong class="stat-value" id="total-zonas">0</strong></article>
+        <article class="stat orange"><span class="stat-label">En operacion</span><strong class="stat-value" id="zonas-activas">0</strong></article>
+        <article class="stat"><span class="stat-label">Modo dominante</span><strong class="stat-value" id="modo-dominante">--</strong></article>
+        <article class="stat orange"><span class="stat-label">Objetivo medio</span><strong class="stat-value"><span id="temperatura-media">--</span><small> °C</small></strong></article>
+      </section>
+
+      <div class="workspace">
+        <section class="panel">
+          <div class="panel-head">
+            <div><h2 class="panel-title">Zonas del edificio</h2><p class="panel-note">Registra una nueva zona o actualiza su equipo.</p></div>
+            <span class="pill" id="sync-label">Sincronizado</span>
+          </div>
+          <div class="form-wrap">
+            <form class="form-grid" id="zone-form">
+              <div class="field"><label for="zone-name">Habitacion o zona</label><input id="zone-name" required placeholder="Ej. Suite 204"></div>
+              <div class="field"><label for="floor">Piso</label><input id="floor" placeholder="2"></div>
+              <div class="field"><label for="equipment">Equipo inicial</label><select id="equipment"><option value="aire">Aire acondicionado</option><option value="calefactor">Calefactor</option><option value="ventilador">Ventilador</option></select></div>
+              <button class="primary" type="submit">+ Registrar zona</button>
+            </form>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Zona</th><th>Piso</th><th>Equipo</th><th>Estado equipo</th><th>Modo</th><th>Accion</th></tr></thead>
+              <tbody id="zone-rows"><tr><td class="empty" colspan="6">Cargando zonas...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="right-column">
+          <section class="panel central">
+            <div class="panel-head" style="padding:0 0 15px; border:0"><div><h2 class="panel-title">Control central</h2><p class="panel-note">Vista global del hotel</p></div><span class="pill">Live</span></div>
+            <div class="central-number" id="central-count">0 <small>sistemas</small></div>
+            <div class="meter"><i id="health-meter"></i></div>
+            <div class="central-meta"><span>Cobertura operativa</span><strong id="health-label">0%</strong></div>
+          </section>
+          <section class="panel activity">
+            <div class="panel-head"><div><h2 class="panel-title">Actividad reciente</h2><p class="panel-note">Ultimos cambios del operador</p></div></div>
+            <ul class="activity-list" id="activity-list"><li class="activity-item">Panel inicializado<time>Ahora</time></li></ul>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const state = { zones: [] };
+    const api = async (url, options = {}) => {
+      const response = await fetch(url, options);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "No se pudo completar la operacion");
+      return data;
+    };
+
+    const safe = (value) => String(value ?? "--").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+    const notify = (message, error = false) => {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.className = `toast show${error ? " error" : ""}`;
+      window.clearTimeout(notify.timer);
+      notify.timer = window.setTimeout(() => toast.classList.remove("show"), 3200);
+    };
+    const logActivity = (message) => {
+      const list = document.getElementById("activity-list");
+      const item = document.createElement("li");
+      item.className = "activity-item";
+      item.innerHTML = `${safe(message)}<time>Ahora</time>`;
+      list.prepend(item);
+      while (list.children.length > 4) list.lastElementChild.remove();
+    };
+    const prettyEquipment = (value) => ({ AireAcondicionado: "Aire acondicionado", Calefactor: "Calefactor", Ventilador: "Ventilador" }[value] || value);
+    const isActive = (value) => value.includes("Operando");
+
+    function render() {
+      const zones = state.zones;
+      const active = zones.filter((zone) => zone.equipo_encendido).length;
+      const activeZones = zones.filter((zone) => zone.equipo_encendido);
+      const modes = activeZones.reduce((counts, zone) => { counts[zone.modo] = (counts[zone.modo] || 0) + 1; return counts; }, {});
+      const dominant = Object.entries(modes).sort((a, b) => b[1] - a[1])[0];
+      const average = activeZones.length ? Math.round(activeZones.reduce((sum, zone) => sum + Number(zone.temperatura_objetivo || 0), 0) / activeZones.length) : "--";
+      document.getElementById("total-zonas").textContent = zones.length;
+      document.getElementById("zonas-activas").textContent = active;
+      document.getElementById("modo-dominante").textContent = dominant ? dominant[0] : "--";
+      document.getElementById("temperatura-media").textContent = average;
+      document.getElementById("central-count").innerHTML = `${zones.length} <small>sistemas</small>`;
+      document.getElementById("health-meter").style.width = `${zones.length ? Math.round(active / zones.length * 100) : 0}%`;
+      document.getElementById("health-label").textContent = `${zones.length ? Math.round(active / zones.length * 100) : 0}%`;
+      const rows = document.getElementById("zone-rows");
+      rows.innerHTML = zones.length ? zones.map((zone) => `<tr>
+        <td><span class="zone-name">${safe(zone.habitacion)}</span><span class="zone-id">HVAC-${safe(String(zone.habitacion).slice(0, 3).toUpperCase())}</span></td>
+        <td>${safe(zone.piso)}</td><td>${safe(prettyEquipment(zone.equipo))}</td>
+        <td><span class="state ${zone.equipo_encendido ? "" : "off"}">${zone.equipo_encendido ? "● Encendido" : "○ Apagado"}</span><span class="zone-id">${safe(prettyEquipment(zone.equipo))}</span></td>
+        <td>
+          <select onchange="changeStrategy('${encodeURIComponent(zone.habitacion)}', this.value)" style="min-height: 32px; padding: 4px 8px; font-size: 11px;" ${zone.equipo_encendido ? "" : "disabled"}>
+            <option value="eco" ${zone.modo === 'ECO' ? 'selected' : ''}>ECO</option>
+            <option value="confort" ${zone.modo === 'CONFORT' ? 'selected' : ''}>CONFORT</option>
+            <option value="turbo" ${zone.modo === 'TURBO' ? 'selected' : ''}>TURBO</option>
+          </select>
+        </td>
+        <td><button class="row-action" onclick="toggleEquipment('${encodeURIComponent(zone.habitacion)}', ${!zone.equipo_encendido})">${zone.equipo_encendido ? "Apagar" : "Encender"}</button> <button class="row-action" onclick="changeEquipment('${encodeURIComponent(zone.habitacion)}')">Cambiar</button></td>
+      </tr>`).join("") : '<tr><td class="empty" colspan="6">Todavia no hay zonas registradas.</td></tr>';
+    }
+
+    async function cargarDatos() {
+      document.getElementById("sync-label").textContent = "Actualizando...";
+      try {
+        const data = await api("/habitaciones");
+        state.zones = data.zonas || [];
+        render();
+        document.getElementById("sync-label").textContent = "Sincronizado";
+      } catch (error) {
+        document.getElementById("sync-label").textContent = "Sin conexion";
+        notify(error.message, true);
+      }
+    }
+
+    document.getElementById("zone-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const name = document.getElementById("zone-name").value.trim();
+      const floor = document.getElementById("floor").value.trim();
+      const equipment = document.getElementById("equipment").value;
+      const query = new URLSearchParams({ equipo: equipment });
+      if (floor) query.set("piso", floor);
+      try {
+        await api(`/habitaciones/${encodeURIComponent(name)}?${query}`);
+        event.target.reset();
+        logActivity(`Zona ${name} registrada con ${equipment}`);
+        notify("Zona registrada correctamente");
+        await cargarDatos();
+      } catch (error) { notify(error.message, true); }
+    });
+
+    async function changeEquipment(encodedName) {
+      const name = decodeURIComponent(encodedName);
+      const equipment = window.prompt("Escribe: aire, calefactor o ventilador", "aire");
+      if (!equipment) return;
+      try {
+        await api(`/habitaciones/${encodeURIComponent(name)}/equipo?equipo=${encodeURIComponent(equipment)}`, { method: "PUT" });
+        logActivity(`Equipo de ${name} actualizado`);
+        notify("Equipo actualizado");
+        await cargarDatos();
+      } catch (error) { notify(error.message, true); }
+    }
+
+    async function toggleEquipment(encodedName, encendido) {
+      const name = decodeURIComponent(encodedName);
+      try {
+        await api(`/habitaciones/${encodeURIComponent(name)}/equipo/estado?encendido=${encendido}`, { method: "PUT" });
+        logActivity(`${name}: equipo ${encendido ? "encendido" : "apagado"}`);
+        notify(`Equipo ${encendido ? "encendido" : "apagado"}`);
+        await cargarDatos();
+      } catch (error) { notify(error.message, true); }
+    }
+
+    async function changeStrategy(encodedName, estrategia) {
+      const name = decodeURIComponent(encodedName);
+      try {
+        await api(`/habitaciones/${encodeURIComponent(name)}/estrategia?estrategia=${encodeURIComponent(estrategia)}`, { method: "PUT" });
+        logActivity(`${name}: estrategia cambiada a ${estrategia.toUpperCase()}`);
+        notify(`Estrategia cambiada a ${estrategia.toUpperCase()}`);
+        await cargarDatos();
+      } catch (error) { notify(error.message, true); }
+    }
+
+    cargarDatos();
+  </script>
+</body>
+</html>
